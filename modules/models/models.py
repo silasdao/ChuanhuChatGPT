@@ -69,7 +69,7 @@ def get_model(
             lora_selector_visibility = True
             if os.path.isdir("lora"):
                 lora_choices = ["No LoRA"] + get_file_names_by_pinyin("lora", filetypes=[""])
-        elif model_type == ModelType.LLaMA and lora_model_path != "":
+        elif model_type == ModelType.LLaMA:
             logging.info(f"正在加载LLaMA模型: {model_name} + {lora_model_path}")
             from .LLaMA import LLaMA_Client
             dont_change_lora_selector = True
@@ -155,22 +155,22 @@ if __name__ == "__main__":
     chatbot = []
     stream = False
     # 测试账单功能
-    logging.info(colorama.Back.GREEN + "测试账单功能" + colorama.Back.RESET)
+    logging.info(f"{colorama.Back.GREEN}测试账单功能{colorama.Back.RESET}")
     logging.info(client.billing_info())
     # 测试问答
-    logging.info(colorama.Back.GREEN + "测试问答" + colorama.Back.RESET)
+    logging.info(f"{colorama.Back.GREEN}测试问答{colorama.Back.RESET}")
     question = "巴黎是中国的首都吗？"
     for i in client.predict(inputs=question, chatbot=chatbot, stream=stream):
         logging.info(i)
     logging.info(f"测试问答后history : {client.history}")
     # 测试记忆力
-    logging.info(colorama.Back.GREEN + "测试记忆力" + colorama.Back.RESET)
+    logging.info(f"{colorama.Back.GREEN}测试记忆力{colorama.Back.RESET}")
     question = "我刚刚问了你什么问题？"
     for i in client.predict(inputs=question, chatbot=chatbot, stream=stream):
         logging.info(i)
     logging.info(f"测试记忆力后history : {client.history}")
     # 测试重试功能
-    logging.info(colorama.Back.GREEN + "测试重试功能" + colorama.Back.RESET)
+    logging.info(f"{colorama.Back.GREEN}测试重试功能{colorama.Back.RESET}")
     for i in client.retry(chatbot=chatbot, stream=stream):
         logging.info(i)
     logging.info(f"重试后history : {client.history}")

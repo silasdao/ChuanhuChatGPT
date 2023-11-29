@@ -68,14 +68,11 @@ class MiniMax_Client(BaseLLMModel):
     def _get_response(self, stream=False):
         minimax_api_key = self.api_key
         history = self.history
-        logging.debug(colorama.Fore.YELLOW +
-                      f"{history}" + colorama.Fore.RESET)
+        logging.debug(f"{colorama.Fore.YELLOW}{history}{colorama.Fore.RESET}")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {minimax_api_key}",
         }
-
-        temperature = self.temperature * 0.9 if self.temperature <= 1 else 0.9 + (self.temperature - 1) / 10
 
         messages = []
         for msg in self.history:
@@ -84,6 +81,11 @@ class MiniMax_Client(BaseLLMModel):
             else:
                 messages.append({"sender_type": "BOT", "text": msg['content']})
 
+        temperature = (
+            self.temperature * 0.9
+            if self.temperature <= 1
+            else 0.9 + (self.temperature - 1) / 10
+        )
         request_body = {
             "model": self.model_name.replace('minimax-', ''),
             "temperature": temperature,

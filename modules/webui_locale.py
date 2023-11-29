@@ -23,7 +23,7 @@ class I18nAuto:
         else:
             logging.warning(f"Language file for {language} does not exist. Using English instead.")
             logging.warning(f"Available languages: {', '.join([x[:-5] for x in os.listdir('./locale')])}")
-            with open(f"./locale/en_US.json", "r", encoding="utf-8") as f:
+            with open("./locale/en_US.json", "r", encoding="utf-8") as f:
                 self.language_map.update(json.load(f))
 
     def __call__(self, key):

@@ -25,16 +25,11 @@ class ChatGLM_Client(BaseLLMModel):
                 model_dirs = os.listdir("models")
                 if model_name in model_dirs:
                     model_path = f"models/{model_name}"
-            if model_path is not None:
-                model_source = model_path
-            else:
-                model_source = f"THUDM/{model_name}"
+            model_source = model_path if model_path is not None else f"THUDM/{model_name}"
             CHATGLM_TOKENIZER = AutoTokenizer.from_pretrained(
                 model_source, trust_remote_code=True
             )
-            quantified = False
-            if "int4" in model_name:
-                quantified = True
+            quantified = "int4" in model_name
             model = AutoModel.from_pretrained(
                 model_source, trust_remote_code=True
             )

@@ -36,9 +36,9 @@ class Ws_Param(object):
         date = format_date_time(mktime(now.timetuple()))
 
         # 拼接字符串
-        signature_origin = "host: " + self.host + "\n"
-        signature_origin += "date: " + date + "\n"
-        signature_origin += "GET " + self.path + " HTTP/1.1"
+        signature_origin = f"host: {self.host}" + "\n"
+        signature_origin += f"date: {date}" + "\n"
+        signature_origin += f"GET {self.path} HTTP/1.1"
 
         # 进行hmac-sha256进行加密
         signature_sha = hmac.new(
@@ -58,10 +58,7 @@ class Ws_Param(object):
 
         # 将请求的鉴权参数组合为字典
         v = {"authorization": authorization, "date": date, "host": self.host}
-        # 拼接鉴权参数，生成url
-        url = self.Spark_url + "?" + urlencode(v)
-        # 此处打印出建立连接时候的url,参考本demo的时候可取消上方打印的注释，比对相同参数时生成的url与自己代码生成的url是否一致
-        return url
+        return f"{self.Spark_url}?{urlencode(v)}"
 
 
 class Spark_Client(BaseLLMModel):
@@ -84,7 +81,7 @@ class Spark_Client(BaseLLMModel):
 
     # 收到websocket错误的处理
     def on_error(self, ws, error):
-        ws.iterator.callback("出现了错误:" + error)
+        ws.iterator.callback(f"出现了错误:{error}")
 
     # 收到websocket关闭的处理
     def on_close(self, ws, one, two):
@@ -108,7 +105,7 @@ class Spark_Client(BaseLLMModel):
         """
         通过appid和用户的提问来生成请参数
         """
-        data = {
+        return {
             "header": {"app_id": self.appid, "uid": "1234"},
             "parameter": {
                 "chat": {
@@ -120,7 +117,6 @@ class Spark_Client(BaseLLMModel):
             },
             "payload": {"message": {"text": self.history}},
         }
-        return data
 
     def get_answer_stream_iter(self):
         wsParam = Ws_Param(self.appid, self.api_key, self.api_secret, self.spark_url)

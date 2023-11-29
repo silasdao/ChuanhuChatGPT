@@ -27,7 +27,7 @@ def get_current_strings():
     fixed_data = {}     # fix some keys
     for key, value in data.items():
         if "](" in key and key.count("(") != key.count(")"):
-                fixed_data[key+")"] = value
+            fixed_data[f"{key})"] = value
         else:
             fixed_data[key] = value
 
@@ -44,12 +44,13 @@ def get_locale_strings(filename):
 
 
 def sort_strings(existing_translations):
-    # Sort the merged data
-    sorted_translations = {}
-    # Add entries with (NOT USED) in their values
-    for key, value in sorted(existing_translations.items(), key=lambda x: x[0]):
-        if "(🔴NOT USED)" in value:
-            sorted_translations[key] = value
+    sorted_translations = {
+        key: value
+        for key, value in sorted(
+            existing_translations.items(), key=lambda x: x[0]
+        )
+        if "(🔴NOT USED)" in value
+    }
     # Add entries with empty values
     for key, value in sorted(existing_translations.items(), key=lambda x: x[0]):
         if value == "":
@@ -66,7 +67,7 @@ async def auto_translate(str, language):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
-        "temperature": f"{0}",
+        "temperature": 0,
     }
     payload = {
         "model": "gpt-3.5-turbo",
@@ -90,11 +91,11 @@ async def main(auto=False):
     locale_files = []
     # 遍历locale目录下的所有json文件
     for dirpath, dirnames, filenames in os.walk("locale"):
-        for filename in filenames:
-            if filename.endswith(".json"):
-                locale_files.append(os.path.join(dirpath, filename))
-
-
+        locale_files.extend(
+            os.path.join(dirpath, filename)
+            for filename in filenames
+            if filename.endswith(".json")
+        )
     for locale_filename in locale_files:
         if "zh_CN" in locale_filename:
             continue
@@ -110,7 +111,7 @@ async def main(auto=False):
         # Add (NOT USED) to invalid keys
         for key in locale_strs:
             if key not in current_strs:
-                locale_strs[key] = "(🔴NOT USED)" + locale_strs[key]
+                locale_strs[key] = f"(🔴NOT USED){locale_strs[key]}"
         print(f"{locale_filename[7:-5]}'s invalid str: {len(locale_strs) - len(current_strs)}")
 
         locale_strs = sort_strings(locale_strs)
@@ -124,7 +125,7 @@ async def main(auto=False):
                     tasks.append(auto_translate(key, locale_filename[7:-5]))
             results = await asyncio.gather(*tasks)
             for key, result in zip(non_translated_keys, results):
-                locale_strs[key] = "(🟡REVIEW NEEDED)" + result
+                locale_strs[key] = f"(🟡REVIEW NEEDED){result}"
             print(f"{locale_filename[7:-5]}'s auto translated str: {len(non_translated_keys)}")
 
         with open(locale_filename, 'w', encoding='utf-8') as f:
@@ -132,7 +133,5 @@ async def main(auto=False):
 
 
 if __name__ == "__main__":
-    auto = False
-    if len(sys.argv) > 1 and sys.argv[1] == "--auto":
-        auto = True
+    auto = len(sys.argv) > 1 and sys.argv[1] == "--auto"
     asyncio.run(main(auto))

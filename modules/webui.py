@@ -28,27 +28,38 @@ def webpath(fn):
 ScriptFile = namedtuple("ScriptFile", ["basedir", "filename", "path"])
 
 def javascript_html():
-    head = ""
-    for script in list_scripts("javascript", ".js"):
-        head += f'<script type="text/javascript" src="{webpath(script.path)}"></script>\n'
+    head = "".join(
+        f'<script type="text/javascript" src="{webpath(script.path)}"></script>\n'
+        for script in list_scripts("javascript", ".js")
+    )
     for script in list_scripts("javascript", ".mjs"):
         head += f'<script type="module" src="{webpath(script.path)}"></script>\n'
     return head
 
 def css_html():
-    head = ""
-    for cssfile in list_scripts("stylesheet", ".css"):
-        head += f'<link rel="stylesheet" property="stylesheet" href="{webpath(cssfile.path)}">'
-    return head
+    return "".join(
+        f'<link rel="stylesheet" property="stylesheet" href="{webpath(cssfile.path)}">'
+        for cssfile in list_scripts("stylesheet", ".css")
+    )
 
 def list_scripts(scriptdirname, extension):
     scripts_list = []
     scripts_dir = os.path.join(shared.chuanhu_path, "web_assets", scriptdirname)
     if os.path.exists(scripts_dir):
-        for filename in sorted(os.listdir(scripts_dir)):
-            scripts_list.append(ScriptFile(shared.assets_path, filename, os.path.join(scripts_dir, filename)))
-    scripts_list = [x for x in scripts_list if os.path.splitext(x.path)[1].lower() == extension and os.path.isfile(x.path)]
-    return scripts_list
+        scripts_list.extend(
+            ScriptFile(
+                shared.assets_path,
+                filename,
+                os.path.join(scripts_dir, filename),
+            )
+            for filename in sorted(os.listdir(scripts_dir))
+        )
+    return [
+        x
+        for x in scripts_list
+        if os.path.splitext(x.path)[1].lower() == extension
+        and os.path.isfile(x.path)
+    ]
 
 
 def reload_javascript():

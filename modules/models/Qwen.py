@@ -49,9 +49,8 @@ class Qwen_Client(BaseLLMModel):
     def get_answer_stream_iter(self):
         history, query = self._get_glm_style_input()
         self.model.generation_config = self.generation_config()
-        for response in self.model.chat_stream(
-                self.tokenizer,
-                query,
-                history,
-            ):
-                yield response
+        yield from self.model.chat_stream(
+            self.tokenizer,
+            query,
+            history,
+        )

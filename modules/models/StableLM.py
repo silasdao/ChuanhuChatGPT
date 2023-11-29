@@ -14,17 +14,14 @@ STABLELM_TOKENIZER = None
 class StopOnTokens(StoppingCriteria):
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
         stop_ids = [50278, 50279, 50277, 1, 0]
-        for stop_id in stop_ids:
-            if input_ids[0][-1] == stop_id:
-                return True
-        return False
+        return any(input_ids[0][-1] == stop_id for stop_id in stop_ids)
 
 
 class StableLM_Client(BaseLLMModel):
     def __init__(self, model_name, user_name="") -> None:
         super().__init__(model_name=model_name, user=user_name)
         global STABLELM_MODEL, STABLELM_TOKENIZER
-        print(f"Starting to load StableLM to memory")
+        print("Starting to load StableLM to memory")
         if model_name == "StableLM":
             model_name = "stabilityai/stablelm-tuned-alpha-7b"
         else:
@@ -36,7 +33,7 @@ class StableLM_Client(BaseLLMModel):
             STABLELM_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
         self.generator = pipeline(
             'text-generation', model=STABLELM_MODEL, tokenizer=STABLELM_TOKENIZER, device=0)
-        print(f"Sucessfully loaded StableLM to the memory")
+        print("Sucessfully loaded StableLM to the memory")
         self.system_prompt = """StableAssistant
 - StableAssistant is A helpful and harmless Open Source AI Language Model developed by Stability and CarperAI.
 - StableAssistant is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.
@@ -49,10 +46,17 @@ class StableLM_Client(BaseLLMModel):
     def _get_stablelm_style_input(self):
         history = self.history + [{"role": "assistant", "content": ""}]
         print(history)
-        messages = self.system_prompt + \
-            "".join(["".join(["<|USER|>"+history[i]["content"], "<|ASSISTANT|>"+history[i + 1]["content"]])
-                    for i in range(0, len(history), 2)])
-        return messages
+        return self.system_prompt + "".join(
+            [
+                "".join(
+                    [
+                        "<|USER|>" + history[i]["content"],
+                        "<|ASSISTANT|>" + history[i + 1]["content"],
+                    ]
+                )
+                for i in range(0, len(history), 2)
+            ]
+        )
 
     def _generate(self, text, bad_text=None):
         stop = StopOnTokens()

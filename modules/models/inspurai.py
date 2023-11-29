@@ -222,15 +222,13 @@ class YuanAPI:
         code = str.encode("utf-8")
         m = hashlib.md5()
         m.update(code)
-        result = m.hexdigest()
-        return result
+        return m.hexdigest()
 
     @staticmethod
     def rest_get(url, header, timeout, show_error=False):
         '''Call rest get method'''
         try:
-            response = requests.get(url, headers=header, timeout=timeout, verify=False)
-            return response
+            return requests.get(url, headers=header, timeout=timeout, verify=False)
         except Exception as exception:
             if show_error:
                 print(exception)
@@ -240,8 +238,7 @@ class YuanAPI:
         """Generate header for API request."""
         t = datetime.now(pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d")
         token = self.code_md5(self.ACCOUNT + self.PHONE + t)
-        headers = {'token': token}
-        return headers
+        return {'token': token}
 
     def submit_request(self, query, temperature, topP, topK, max_tokens, engine, frequencyPenalty, responsePenalty,
                        noRepeatNgramSize):
@@ -251,14 +248,13 @@ class YuanAPI:
         # url=SUBMIT_URL + "engine={0}&account={1}&data={2}&temperature={3}&topP={4}&topK={5}&tokensToGenerate={6}" \
         #                  "&type={7}".format(engine,ACCOUNT,query,temperature,topP,topK, max_tokens,"api")
         url = self.SUBMIT_URL + "engine={0}&account={1}&data={2}&temperature={3}&topP={4}&topK={5}&tokensToGenerate={6}" \
-                                "&type={7}&frequencyPenalty={8}&responsePenalty={9}&noRepeatNgramSize={10}". \
-            format(engine, self.ACCOUNT, query, temperature, topP, topK, max_tokens, "api", frequencyPenalty,
+                                    "&type={7}&frequencyPenalty={8}&responsePenalty={9}&noRepeatNgramSize={10}". \
+                format(engine, self.ACCOUNT, query, temperature, topP, topK, max_tokens, "api", frequencyPenalty,
                    responsePenalty, noRepeatNgramSize)
         response = self.rest_get(url, headers, 30)
         response_text = json.loads(response.text)
         if response_text["flag"]:
-            requestId = response_text["resData"]
-            return requestId
+            return response_text["resData"]
         else:
             raise RuntimeWarning(response_text)
 
@@ -302,8 +298,7 @@ class Yuan_Client(BaseLLMModel):
         topK = self.n_choices
         # max_tokens should be in [1,200]
         max_tokens = self.max_generation_token if self.max_generation_token is not None else 50
-        if max_tokens > 200:
-            max_tokens = 200
+        max_tokens = min(max_tokens, 200)
         stop = self.stop_sequence if self.stop_sequence is not None else []
         examples = []
         system_prompt = self.system_prompt

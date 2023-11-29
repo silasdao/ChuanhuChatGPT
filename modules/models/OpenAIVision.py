@@ -120,7 +120,7 @@ class OpenAIVisionClient(BaseLLMModel):
         fake_inputs = real_inputs
         display_append = ""
         limited_context = False
-        return limited_context, fake_inputs, display_append, real_inputs, chatbot
+        return limited_context, fake_inputs, display_append, fake_inputs, chatbot
 
 
     def count_token(self, user_input):
@@ -161,13 +161,9 @@ class OpenAIVisionClient(BaseLLMModel):
                     usage_limit = usage_limit
                 )
         except requests.exceptions.ConnectTimeout:
-            status_text = (
-                STANDARD_ERROR_MSG + CONNECTION_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
-            )
-            return status_text
+            return STANDARD_ERROR_MSG + CONNECTION_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
         except requests.exceptions.ReadTimeout:
-            status_text = STANDARD_ERROR_MSG + READ_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
-            return status_text
+            return STANDARD_ERROR_MSG + READ_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -188,13 +184,7 @@ class OpenAIVisionClient(BaseLLMModel):
                 *[{"type": "image_url", "image_url": "data:image/jpeg;base64,"+image["base64"]} for image in self.images]
             ]
             self.images = []
-        logging.debug(colorama.Fore.YELLOW +
-                      f"{history}" + colorama.Fore.RESET)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {openai_api_key}",
-        }
-
+        logging.debug(f"{colorama.Fore.YELLOW}{history}{colorama.Fore.RESET}")
         if system_prompt is not None:
             history = [construct_system(system_prompt), *history]
 
@@ -218,15 +208,15 @@ class OpenAIVisionClient(BaseLLMModel):
         if self.user_identifier:
             payload["user"] = self.user_identifier
 
-        if stream:
-            timeout = TIMEOUT_STREAMING
-        else:
-            timeout = TIMEOUT_ALL
-
+        timeout = TIMEOUT_STREAMING if stream else TIMEOUT_ALL
         # 如果有自定义的api-host，使用自定义host发送请求，否则使用默认设置发送请求
         if shared.state.chat_completion_url != CHAT_COMPLETION_URL:
             logging.debug(f"使用自定义API URL: {shared.state.chat_completion_url}")
 
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {openai_api_key}",
+        }
         with retrieve_proxy():
             try:
                 response = requests.post(
@@ -257,8 +247,7 @@ class OpenAIVisionClient(BaseLLMModel):
             )
 
         if response.status_code == 200:
-            data = response.json()
-            return data
+            return response.json()
         else:
             raise Exception(
                 f"API request failed with status code {response.status_code}: {response.text}"
@@ -293,7 +282,7 @@ class OpenAIVisionClient(BaseLLMModel):
                     traceback.print_exc()
                     print(f"ERROR: {chunk}")
                     continue
-        if error_msg and not error_msg=="data: [DONE]":
+        if error_msg and error_msg != "data: [DONE]":
             raise Exception(error_msg)
 
     def set_key(self, new_access_key):

@@ -13,7 +13,7 @@ from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 from transformers.modeling_outputs import BaseModelOutputWithPast
 try:
     from transformers import MossForCausalLM, MossTokenizer
-except (ImportError, ModuleNotFoundError):
+except ImportError:
     from .modeling_moss import MossForCausalLM
     from .tokenization_moss import MossTokenizer
     from .configuration_moss import MossConfig
@@ -132,9 +132,7 @@ class MOSS_Client(BaseLLMModel):
 
     def get_answer_stream_iter(self):
         prompt = self._get_moss_style_inputs()
-        it = self.forward(prompt)
-        for i in it:
-            yield i
+        yield from self.forward(prompt)
 
     def preprocess(self, raw_text: str) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -242,7 +240,7 @@ class MOSS_Client(BaseLLMModel):
             self.bsz, 1, dtype=torch.int64), time.time()
 
         past_key_values = None
-        for i in range(int(max_iterations)):
+        for i in range(max_iterations):
             logits, past_key_values = self.infer_(
                 input_ids if i == 0 else new_generated_id, attention_mask, past_key_values)
 
@@ -269,10 +267,10 @@ class MOSS_Client(BaseLLMModel):
             probabilities = torch.softmax(filtered_logits, dim=-1)
 
             cur_len = i
-            if cur_len > int(regulation_start):
+            if cur_len > regulation_start:
                 for i in self.moss_stopwords:
                     probabilities[:, i] = probabilities[:, i] * \
-                        pow(length_penalty, cur_len - regulation_start)
+                            pow(length_penalty, cur_len - regulation_start)
 
             new_generated_id = torch.multinomial(probabilities, 1)
 

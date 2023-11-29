@@ -92,13 +92,9 @@ class OpenAIClient(BaseLLMModel):
                     usage_limit = usage_limit
                 )
         except requests.exceptions.ConnectTimeout:
-            status_text = (
-                STANDARD_ERROR_MSG + CONNECTION_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
-            )
-            return status_text
+            return STANDARD_ERROR_MSG + CONNECTION_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
         except requests.exceptions.ReadTimeout:
-            status_text = STANDARD_ERROR_MSG + READ_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
-            return status_text
+            return STANDARD_ERROR_MSG + READ_TIMEOUT_MSG + ERROR_RETRIEVE_MSG
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -113,13 +109,7 @@ class OpenAIClient(BaseLLMModel):
         openai_api_key = self.api_key
         system_prompt = self.system_prompt
         history = self.history
-        logging.debug(colorama.Fore.YELLOW +
-                      f"{history}" + colorama.Fore.RESET)
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {openai_api_key}",
-        }
-
+        logging.debug(f"{colorama.Fore.YELLOW}{history}{colorama.Fore.RESET}")
         if system_prompt is not None:
             history = [construct_system(system_prompt), *history]
 
@@ -143,15 +133,15 @@ class OpenAIClient(BaseLLMModel):
         if self.user_identifier:
             payload["user"] = self.user_identifier
 
-        if stream:
-            timeout = TIMEOUT_STREAMING
-        else:
-            timeout = TIMEOUT_ALL
-
+        timeout = TIMEOUT_STREAMING if stream else TIMEOUT_ALL
         # 如果有自定义的api-host，使用自定义host发送请求，否则使用默认设置发送请求
         if shared.state.chat_completion_url != CHAT_COMPLETION_URL:
             logging.debug(f"使用自定义API URL: {shared.state.chat_completion_url}")
 
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {openai_api_key}",
+        }
         with retrieve_proxy():
             try:
                 response = requests.post(
@@ -182,8 +172,7 @@ class OpenAIClient(BaseLLMModel):
             )
 
         if response.status_code == 200:
-            data = response.json()
-            return data
+            return response.json()
         else:
             raise Exception(
                 f"API request failed with status code {response.status_code}: {response.text}"
@@ -217,7 +206,7 @@ class OpenAIClient(BaseLLMModel):
                 except:
                     print(f"ERROR: {chunk}")
                     continue
-        if error_msg and not error_msg=="data: [DONE]":
+        if error_msg and error_msg != "data: [DONE]":
             raise Exception(error_msg)
 
     def set_key(self, new_access_key):
@@ -253,27 +242,30 @@ class OpenAIClient(BaseLLMModel):
 
 
     def auto_name_chat_history(self, name_chat_method, user_question, chatbot, user_name, single_turn_checkbox):
-        if len(self.history) == 2 and not single_turn_checkbox and not hide_history_when_not_logged_in:
-            user_question = self.history[0]["content"]
-            if name_chat_method == i18n("模型自动总结（消耗tokens）"):
-                ai_answer = self.history[1]["content"]
-                try:
-                    history = [
-                        { "role": "system", "content": SUMMARY_CHAT_SYSTEM_PROMPT},
-                        { "role": "user", "content": f"Please write a title based on the following conversation:\n---\nUser: {user_question}\nAssistant: {ai_answer}"}
-                    ]
-                    response = self._single_query_at_once(history, temperature=0.0)
-                    response = json.loads(response.text)
-                    content = response["choices"][0]["message"]["content"]
-                    filename = replace_special_symbols(content) + ".json"
-                except Exception as e:
-                    logging.info(f"自动命名失败。{e}")
-                    filename = replace_special_symbols(user_question)[:16] + ".json"
-                return self.rename_chat_history(filename, chatbot, user_name)
-            elif name_chat_method == i18n("第一条提问"):
-                filename = replace_special_symbols(user_question)[:16] + ".json"
-                return self.rename_chat_history(filename, chatbot, user_name)
-            else:
-                return gr.update()
+        if (
+            len(self.history) != 2
+            or single_turn_checkbox
+            or hide_history_when_not_logged_in
+        ):
+            return gr.update()
+        user_question = self.history[0]["content"]
+        if name_chat_method == i18n("模型自动总结（消耗tokens）"):
+            ai_answer = self.history[1]["content"]
+            try:
+                history = [
+                    { "role": "system", "content": SUMMARY_CHAT_SYSTEM_PROMPT},
+                    { "role": "user", "content": f"Please write a title based on the following conversation:\n---\nUser: {user_question}\nAssistant: {ai_answer}"}
+                ]
+                response = self._single_query_at_once(history, temperature=0.0)
+                response = json.loads(response.text)
+                content = response["choices"][0]["message"]["content"]
+                filename = f"{replace_special_symbols(content)}.json"
+            except Exception as e:
+                logging.info(f"自动命名失败。{e}")
+                filename = f"{replace_special_symbols(user_question)[:16]}.json"
+            return self.rename_chat_history(filename, chatbot, user_name)
+        elif name_chat_method == i18n("第一条提问"):
+            filename = f"{replace_special_symbols(user_question)[:16]}.json"
+            return self.rename_chat_history(filename, chatbot, user_name)
         else:
             return gr.update()

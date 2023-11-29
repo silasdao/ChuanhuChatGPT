@@ -57,10 +57,7 @@ class XMChat(BaseLLMModel):
         img.save(buffer, format='JPEG')
         binary_image = buffer.getvalue()
 
-        # 对二进制数据进行Base64编码
-        base64_image = base64.b64encode(binary_image).decode('utf-8')
-
-        return base64_image
+        return base64.b64encode(binary_image).decode('utf-8')
 
     def try_read_image(self, filepath):
         def is_image_file(filepath):
@@ -102,7 +99,7 @@ class XMChat(BaseLLMModel):
         fake_inputs = real_inputs
         display_append = ""
         limited_context = False
-        return limited_context, fake_inputs, display_append, real_inputs, chatbot
+        return limited_context, fake_inputs, display_append, fake_inputs, chatbot
 
     def handle_file_upload(self, files, chatbot, language):
         """if the model accepts multi modal input, implement this function"""

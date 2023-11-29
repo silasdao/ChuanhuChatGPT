@@ -19,11 +19,7 @@ def excel_to_jsonl(filepath, preview=False):
     # 获取第一个工作表
     sheet = workbook.active
 
-    # 获取所有行数据
-    data = []
-    for row in sheet.iter_rows(values_only=True):
-        data.append(row)
-
+    data = list(sheet.iter_rows(values_only=True))
     # 构建字典列表
     headers = data[0]
     jsonl = []
@@ -64,8 +60,7 @@ def jsonl_save_to_disk(jsonl, filepath):
 def estimate_cost(ds):
     dialogues = []
     for l in ds:
-        for m in l["messages"]:
-            dialogues.append(m["content"])
+        dialogues.extend(m["content"] for m in l["messages"])
     dialogues = "\n".join(dialogues)
     tokens = count_token(dialogues)
     return f"Token 数约为 {tokens}，预估每轮（epoch）费用约为 {tokens / 1000 * 0.008} 美元。"
@@ -96,7 +91,7 @@ def upload_to_openai(file_src):
             file=open(dspath, "rb"),
             purpose='fine-tune'
             )
-        return uploaded.id, f"上传成功"
+        return uploaded.id, "上传成功"
     except Exception as e:
         traceback.print_exc()
         return "", f"上传失败，原因：{ e }"
@@ -127,7 +122,9 @@ def start_training(file_id, suffix, epochs):
 def get_training_status():
     openai.api_key = os.getenv("OPENAI_API_KEY")
     active_jobs = [build_event_description(job["id"], job["status"], job["trained_tokens"], job["fine_tuned_model"]) for job in openai.FineTuningJob.list(limit=10)["data"] if job["status"] != "cancelled"]
-    return "\n\n".join(active_jobs), gr.update(interactive=True) if len(active_jobs) > 0 else gr.update(interactive=False)
+    return "\n\n".join(active_jobs), gr.update(
+        interactive=True
+    ) if active_jobs else gr.update(interactive=False)
 
 def handle_dataset_clear():
     return gr.update(value=None), gr.update(interactive=False)

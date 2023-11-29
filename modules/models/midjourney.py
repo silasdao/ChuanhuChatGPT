@@ -62,7 +62,7 @@ class Midjourney_Client(XMChat):
             if not os.path.exists(temp):
                 os.makedirs(temp)
             self.temp_path = tempfile.mkdtemp(dir=temp)
-            logging.info("mj temp folder: " + self.temp_path)
+            logging.info(f"mj temp folder: {self.temp_path}")
         else:
             self.temp_path = None
 
@@ -92,8 +92,7 @@ class Midjourney_Client(XMChat):
                        (0, half_height, half_width, height),
                        (half_width, half_height, width, height)]
 
-        images = [img.crop(c) for c in coordinates]
-        return images
+        return [img.crop(c) for c in coordinates]
 
     def auth_mj(self):
         """
@@ -136,70 +135,68 @@ class Midjourney_Client(XMChat):
         """
         if fetch_data.start_time + fetch_data.timeout < time.time():
             fetch_data.finished = True
-            return "任务超时，请检查 dc 输出。描述：" + fetch_data.prompt
+            return f"任务超时，请检查 dc 输出。描述：{fetch_data.prompt}"
 
         time.sleep(3)
         status_res = self.request_mj(f"task/{fetch_data.task_id}/fetch", "GET", '')
         status_res_json = status_res.json()
-        if not (200 <= status_res.status_code < 300):
+        if not 200 <= status_res.status_code < 300:
             raise Exception("任务状态获取失败：" + status_res_json.get(
                 'error') or status_res_json.get('description') or '未知错误')
+        fetch_data.finished = False
+        if status_res_json['status'] == "SUCCESS":
+            content = status_res_json['imageUrl']
+            fetch_data.finished = True
+        elif status_res_json['status'] == "FAILED":
+            content = status_res_json['failReason'] or '未知原因'
+            fetch_data.finished = True
+        elif status_res_json['status'] == "NOT_START":
+            content = f'任务未开始，已等待 {time.time() - fetch_data.start_time:.2f} 秒'
+        elif status_res_json['status'] == "IN_PROGRESS":
+            content = '任务正在运行'
+            if status_res_json.get('progress'):
+                content += f"，进度：{status_res_json['progress']}"
+        elif status_res_json['status'] == "SUBMITTED":
+            content = '任务已提交处理'
+        elif status_res_json['status'] == "FAILURE":
+            fetch_data.finished = True
+            return "任务处理失败，原因：" + status_res_json['failReason'] or '未知原因'
         else:
-            fetch_data.finished = False
-            if status_res_json['status'] == "SUCCESS":
-                content = status_res_json['imageUrl']
-                fetch_data.finished = True
-            elif status_res_json['status'] == "FAILED":
-                content = status_res_json['failReason'] or '未知原因'
-                fetch_data.finished = True
-            elif status_res_json['status'] == "NOT_START":
-                content = f'任务未开始，已等待 {time.time() - fetch_data.start_time:.2f} 秒'
-            elif status_res_json['status'] == "IN_PROGRESS":
-                content = '任务正在运行'
-                if status_res_json.get('progress'):
-                    content += f"，进度：{status_res_json['progress']}"
-            elif status_res_json['status'] == "SUBMITTED":
-                content = '任务已提交处理'
-            elif status_res_json['status'] == "FAILURE":
-                fetch_data.finished = True
-                return "任务处理失败，原因：" + status_res_json['failReason'] or '未知原因'
-            else:
-                content = status_res_json['status']
-            if fetch_data.finished:
-                img_url = self.use_mj_self_proxy_url(status_res_json['imageUrl'])
-                if fetch_data.action == "DESCRIBE":
-                    return f"\n{status_res_json['prompt']}"
-                time_cost_str = f"\n\n{fetch_data.action} 花费时间：{time.time() - fetch_data.start_time:.2f} 秒"
-                upscale_str = ""
-                variation_str = ""
-                if fetch_data.action in ["IMAGINE", "UPSCALE", "VARIATION"]:
-                    upscale = [f'/mj UPSCALE{self.command_splitter}{i+1}{self.command_splitter}{fetch_data.task_id}'
-                               for i in range(4)]
-                    upscale_str = '\n放大图片：\n\n' + '\n\n'.join(upscale)
-                    variation = [f'/mj VARIATION{self.command_splitter}{i+1}{self.command_splitter}{fetch_data.task_id}'
-                                 for i in range(4)]
-                    variation_str = '\n图片变体：\n\n' + '\n\n'.join(variation)
-                if self.temp_path and fetch_data.action in ["IMAGINE", "VARIATION"]:
-                    try:
-                        images = self.split_image(img_url)
-                        # save images to temp path
-                        for i in range(4):
-                            images[i].save(pathlib.Path(self.temp_path) / f"{fetch_data.task_id}_{i}.png")
-                        img_str = '\n'.join(
-                            [f"![{fetch_data.task_id}](/file={self.temp_path}/{fetch_data.task_id}_{i}.png)"
-                             for i in range(4)])
-                        return fetch_data.prefix_content + f"{time_cost_str}\n\n{img_str}{upscale_str}{variation_str}"
-                    except Exception as e:
-                        logging.error(e)
-                return fetch_data.prefix_content + \
-                    f"{time_cost_str}[![{fetch_data.task_id}]({img_url})]({img_url}){upscale_str}{variation_str}"
-            else:
-                content = f"**任务状态:** [{(datetime.now()).strftime('%Y-%m-%d %H:%M:%S')}] - {content}"
-                content += f"\n\n花费时间：{time.time() - fetch_data.start_time:.2f} 秒"
-                if status_res_json['status'] == 'IN_PROGRESS' and status_res_json.get('imageUrl'):
-                    img_url = status_res_json.get('imageUrl')
-                    return f"{content}\n[![{fetch_data.task_id}]({img_url})]({img_url})"
-                return content
+            content = status_res_json['status']
+        if fetch_data.finished:
+            img_url = self.use_mj_self_proxy_url(status_res_json['imageUrl'])
+            if fetch_data.action == "DESCRIBE":
+                return f"\n{status_res_json['prompt']}"
+            time_cost_str = f"\n\n{fetch_data.action} 花费时间：{time.time() - fetch_data.start_time:.2f} 秒"
+            upscale_str = ""
+            variation_str = ""
+            if fetch_data.action in ["IMAGINE", "UPSCALE", "VARIATION"]:
+                upscale = [f'/mj UPSCALE{self.command_splitter}{i+1}{self.command_splitter}{fetch_data.task_id}'
+                           for i in range(4)]
+                upscale_str = '\n放大图片：\n\n' + '\n\n'.join(upscale)
+                variation = [f'/mj VARIATION{self.command_splitter}{i+1}{self.command_splitter}{fetch_data.task_id}'
+                             for i in range(4)]
+                variation_str = '\n图片变体：\n\n' + '\n\n'.join(variation)
+            if self.temp_path and fetch_data.action in ["IMAGINE", "VARIATION"]:
+                try:
+                    images = self.split_image(img_url)
+                    # save images to temp path
+                    for i in range(4):
+                        images[i].save(pathlib.Path(self.temp_path) / f"{fetch_data.task_id}_{i}.png")
+                    img_str = '\n'.join(
+                        [f"![{fetch_data.task_id}](/file={self.temp_path}/{fetch_data.task_id}_{i}.png)"
+                         for i in range(4)])
+                    return f"{fetch_data.prefix_content}{time_cost_str}\n\n{img_str}{upscale_str}{variation_str}"
+                except Exception as e:
+                    logging.error(e)
+            return f"{fetch_data.prefix_content}{time_cost_str}[![{fetch_data.task_id}]({img_url})]({img_url}){upscale_str}{variation_str}"
+        else:
+            content = f"**任务状态:** [{(datetime.now()).strftime('%Y-%m-%d %H:%M:%S')}] - {content}"
+            content += f"\n\n花费时间：{time.time() - fetch_data.start_time:.2f} 秒"
+            if status_res_json['status'] == 'IN_PROGRESS' and status_res_json.get('imageUrl'):
+                img_url = status_res_json.get('imageUrl')
+                return f"{content}\n[![{fetch_data.task_id}]({img_url})]({img_url})"
+            return content
         return None
 
     def handle_file_upload(self, files, chatbot, language):
@@ -295,10 +292,8 @@ class Midjourney_Client(XMChat):
             return
 
         prompt = content[3:].strip()
-        action = "IMAGINE"
         first_split_index = prompt.find(self.command_splitter)
-        if first_split_index > 0:
-            action = prompt[:first_split_index]
+        action = prompt[:first_split_index] if first_split_index > 0 else "IMAGINE"
         if action not in ["IMAGINE", "DESCRIBE", "UPSCALE",
                           "VARIATION", "BLEND", "REROLL"
                           ]:
@@ -318,12 +313,17 @@ class Midjourney_Client(XMChat):
                     "prompt": prompt
                 }
                 if self.image_bytes is not None:
-                    data["base64"] = 'data:image/png;base64,' + self.image_bytes
+                    data["base64"] = f'data:image/png;base64,{self.image_bytes}'
                 res = self.request_mj("submit/imagine", "POST",
                                       json.dumps(data))
             elif action == "DESCRIBE":
-                res = self.request_mj("submit/describe", "POST", json.dumps(
-                    {"base64": 'data:image/png;base64,' + self.image_bytes}))
+                res = self.request_mj(
+                    "submit/describe",
+                    "POST",
+                    json.dumps(
+                        {"base64": f'data:image/png;base64,{self.image_bytes}'}
+                    ),
+                )
             elif action == "BLEND":
                 res = self.request_mj("submit/blend", "POST", json.dumps(
                     {"base64Array": [self.image_bytes, self.image_bytes]}))
@@ -337,10 +337,9 @@ class Midjourney_Client(XMChat):
             else:
                 task_id = res_json['result']
                 prefix_content = f"**画面描述:** {prompt}\n**任务ID:** {task_id}\n"
-                content = f"[{(datetime.now()).strftime('%Y-%m-%d %H:%M:%S')}] - 任务提交成功：" + \
-                    res_json.get('description') or '请稍等片刻'
-                yield content
-
+                yield f"[{(datetime.now()).strftime('%Y-%m-%d %H:%M:%S')}] - 任务提交成功：" + res_json.get(
+                    'description'
+                ) or '请稍等片刻'
                 fetch_data = Midjourney_Client.FetchDataPack(
                     action=action,
                     prefix_content=prefix_content,
@@ -350,7 +349,7 @@ class Midjourney_Client(XMChat):
                     yield self.fetch_status(fetch_data)
         except Exception as e:
             logging.error('submit failed', e)
-            yield "任务提交错误：" + str(e.args[0]) if e.args else '未知错误'
+            yield f"任务提交错误：{str(e.args[0])}" if e.args else '未知错误'
 
     def get_help(self):
         return """```

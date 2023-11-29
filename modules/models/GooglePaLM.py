@@ -23,7 +23,6 @@ class Google_PaLM_Client(BaseLLMModel):
                              temperature=self.temperature, top_p=self.top_p)
         if response.last is not None:
             return response.last, len(response.last)
-        else:
-            reasons = '\n\n'.join(
-                reason['reason'].name for reason in response.filters)
-            return "由于下面的原因，Google 拒绝返回 PaLM 的回答：\n\n" + reasons, 0
+        reasons = '\n\n'.join(
+            reason['reason'].name for reason in response.filters)
+        return "由于下面的原因，Google 拒绝返回 PaLM 的回答：\n\n" + reasons, 0

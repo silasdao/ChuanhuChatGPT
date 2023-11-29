@@ -79,12 +79,10 @@ def commit_hash():
 
 def commit_html():
     commit = commit_hash()
-    if commit != "<none>":
-        short_commit = commit[0:7]
-        commit_info = f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/commit/{short_commit}">{short_commit}</a>'
-    else:
-        commit_info = "unknown \U0001F615"
-    return commit_info
+    if commit == "<none>":
+        return "unknown \U0001F615"
+    short_commit = commit[:7]
+    return f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/commit/{short_commit}">{short_commit}</a>'
 
 
 @lru_cache()
@@ -99,14 +97,12 @@ def tag_html():
     except Exception:
         tag = "<none>"
 
-    if tag == "<none>":
-        tag_info = "unknown \U0001F615"
-    elif tag == "<edited>":
-        tag_info = f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/releases/tag/{latest_tag}">{latest_tag}</a><span style="font-size:smaller">*</span>'
+    if tag == "<edited>":
+        return f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/releases/tag/{latest_tag}">{latest_tag}</a><span style="font-size:smaller">*</span>'
+    elif tag == "<none>":
+        return "unknown \U0001F615"
     else:
-        tag_info = f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/releases/tag/{tag}">{tag}</a>'
-
-    return tag_info
+        return f'<a style="text-decoration:none;color:inherit" href="https://github.com/GaiZhenbiao/ChuanhuChatGPT/releases/tag/{tag}">{tag}</a>'
 
 
 def repo_tag_html():
@@ -116,7 +112,7 @@ def repo_tag_html():
 
 
 def versions_html():
-    python_version = ".".join([str(x) for x in sys.version_info[0:3]])
+    python_version = ".".join([str(x) for x in sys.version_info[:3]])
     repo_version = repo_tag_html()
     return f"""
         Python: <span title="{sys.version}">{python_version}</span>
@@ -235,9 +231,7 @@ def background_update():
                     live=False,
                 )
             except Exception:
-                logging.error(
-                    f"Update failed in fetching, check your network connection"
-                )
+                logging.error("Update failed in fetching, check your network connection")
                 return "failed"
 
             run(
@@ -262,7 +256,7 @@ def background_update():
                     desc=f"[Updater] Trying to apply latest update on version {latest_release_tag}...",
                 )
             except Exception:
-                logging.error(f"Update failed in merging")
+                logging.error("Update failed in merging")
                 try:
                     run(
                         f"{git} merge --abort",
@@ -273,7 +267,7 @@ def background_update():
                     run(f"{git} branch -D -f {backup_branch}", live=False)
                     run(f"{git} stash pop", live=False) if need_stash else None
                     logging.error(
-                        f"Update failed, but your file was safely reset to the state before the update."
+                        "Update failed, but your file was safely reset to the state before the update."
                     )
                     return "failed"
                 except Exception as e:
@@ -299,7 +293,7 @@ def background_update():
                     run(f"{git} branch -D -f {backup_branch}", live=False)
                     run(f"{git} stash pop", live=False)
                     logging.error(
-                        f"Update failed in applying your local changes, but your file was safely reset to the state before the update."
+                        "Update failed in applying your local changes, but your file was safely reset to the state before the update."
                     )
                     return "failed"
                 run(f"{git} stash drop", live=False)
@@ -312,13 +306,13 @@ def background_update():
         if need_pip:
             try:
                 run_pip(
-                    f"install -r requirements.txt",
+                    "install -r requirements.txt",
                     pref="[Updater]",
                     desc="requirements",
                     live=False,
                 )
             except Exception:
-                logging.error(f"Update failed in pip install")
+                logging.error("Update failed in pip install")
                 return "failed"
         return "success"
     except Exception as e:
